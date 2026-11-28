@@ -10,6 +10,7 @@ Commodity buyers, jewelers, and institutional desks face daily price volatility 
 * **Natural Language Processing:** `vaderSentiment` to score financial news headlines (`compound` polarity).
 * **Data Engineering:** `pandas` for timezone normalization (`tz_localize(None)`), date alignment, missing-value imputation, and daily incremental logging (`forecast_log.csv`).
 * **Machine Learning:** `scikit-learn` (`LinearRegression`) trained on de-biased features (`Gold_price` and `Avg_Sentiment`).
+* **Persistence:** Built-in `sqlite3` (`gold_database.db`) with parameterized queries, `CHECK` constraints, and idempotent upserts.
 * **Automation / CI/CD:** **GitHub Actions** (`daily_pipeline.yml`) scheduled via cron (`22:00 UTC` daily) to execute the pipeline and commit updated forecasts automatically.
 
 ## Key Engineering & Modeling Decisions
@@ -18,13 +19,16 @@ Commodity buyers, jewelers, and institutional desks face daily price volatility 
 3. **Idempotent Daily Logging:** `run-pipeline.py` deduplicates by date before appending (`existing_log[existing_log['Date'] != today_date_str]`), ensuring manual re-runs update cleanly without corrupting the historical database.
 
 ## Repository Structure
-* `run-pipeline.py` — Standalone production script that fetches data, trains the model, and updates `forecast_log.csv`.
+* `run-pipeline.py` — Production script that fetches data, trains the model, emits accumulation signals, and updates both `forecast_log.csv` and `gold_database.db`.
+* `signals.py` — Pure signal classification rules (`ACCUMULATE` / `HOLD` / `PAUSE`) with strict input validation.
+* `storage.py` — SQLite persistence layer with schema management, idempotent upserts, weekend/holiday-aware backfills, and CSV migration.
 * `forecast_log.csv` — Self-updating daily log of Gold closing prices, news sentiment, article volume, and next-day predictions.
+* `gold_database.db` — SQLite database with `forecasts` table storing signals, actual next-day prices, and absolute errors.
 * `Gold_News_Pipeline.ipynb` — Exploratory data analysis, model benchmarking, and residual diagnostics.
 * `.github/workflows/daily_pipeline.yml` — GitHub Actions CI/CD workflow for automated daily execution.
+* `tests/` — Unit tests for `signals.py` and `storage.py` (`uv run pytest`).
 
 ## Roadmap
 * **V1 (Completed):** Automated daily ingestion, VADER sentiment scoring, Linear Regression forecasting, and GitHub Actions CI/CD logging.
-* **V2 (Planned):** Automated procurement decision rules (`BUY` / `HOLD` / `NEUTRAL`) and SQLite database storage (`gold_database.db`).
+* **V2 (Completed):** Long-term accumulation signals (`ACCUMULATE` / `HOLD` / `PAUSE`), SQLite database storage (`gold_database.db`), historical CSV migration, and weekend/holiday backfilling.
 * **V3 (Planned):** Interactive public dashboard deployed via Streamlit Community Cloud.
-* 
